@@ -8,6 +8,12 @@ interface BacktestResults {
       max_drawdown: number;
       win_rate: number;
     };
+    risk_metrics: {
+      volatility: number;
+      var_95: number;
+      cvar_95: number;
+      calmar_ratio: number;
+    };
     trade_statistics: {
       total_trades: number;
       winning_trades: number;

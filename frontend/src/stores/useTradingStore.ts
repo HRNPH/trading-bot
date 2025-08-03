@@ -11,6 +11,7 @@ interface TradingStatus {
     total_trades: number;
     win_rate: number;
     total_pnl: number;
+    total_return: number;
   };
   recent_trades: any[];
 }
