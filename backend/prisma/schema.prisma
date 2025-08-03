@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider  = "prisma-client-py"
+  interface = "sync"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Symbol {
+  id          String   @id @default(cuid())
+  symbol      String   @unique
+  name        String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("symbols")
+}
+
+model BacktestResult {
+  id          String   @id @default(cuid())
+  symbol      String
+  strategy    String
+  timeframe   String
+  startDate   DateTime
+  endDate     DateTime
+  totalReturn Float
+  sharpeRatio Float
+  maxDrawdown Float
+  winRate     Float
+  totalTrades Int
+  parameters  String // JSON string of strategy parameters
+  createdAt   DateTime @default(now())
+
+  @@map("backtest_results")
+}
+
+model Backtest {
+  id          String   @id @default(cuid())
+  symbol      String
+  strategyId  String
+  timeframe   String
+  startDate   DateTime
+  endDate     DateTime
+  totalReturn Float?
+  sharpeRatio Float?
+  maxDrawdown Float?
+  winRate     Float?
+  totalTrades Int?
+  status      String   @default("pending") // pending, running, completed, failed
+  parameters  String // JSON string of strategy parameters
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("backtests")
+}
+
+model Trade {
+  id           String    @id @default(cuid())
+  symbol       String
+  strategyId   String
+  entryPrice   Float
+  entryTime    DateTime
+  exitPrice    Float?
+  exitTime     DateTime?
+  positionSize Float
+  side         String // buy, sell
+  profitLoss   Float?
+  status       String    @default("open") // open, closed
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("trades")
+}
