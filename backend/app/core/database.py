@@ -55,8 +55,15 @@ class DatabaseManager:
 db_manager = DatabaseManager()
 
 
+def get_db() -> Prisma:
+    """Get database client for dependency injection."""
+    if not db_manager.is_connected:
+        db_manager.connect()
+    return db_manager.get_client()
+
+
 @contextmanager
-def get_db() -> Generator[Prisma, None, None]:
+def get_db_context() -> Generator[Prisma, None, None]:
     """Get database connection context manager."""
     if not db_manager.is_connected:
         db_manager.connect()

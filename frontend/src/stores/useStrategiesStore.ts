@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiClient } from '../lib/api';
 
 interface Strategy {
   name: string;
@@ -52,13 +53,7 @@ export const useStrategiesStore = create<StrategiesState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await fetch('/api/v1/backtest/strategies');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiClient.get('/v1/backtest/strategies');
       
       if (result.success) {
         set({ strategies: result.data.strategies, loading: false });
@@ -76,13 +71,7 @@ export const useStrategiesStore = create<StrategiesState>((set, get) => ({
   
   fetchStrategyParameters: async (strategyName: string) => {
     try {
-      const response = await fetch(`/api/v1/backtest/strategies/${strategyName}/parameters`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiClient.get(`/v1/backtest/strategies/${strategyName}/parameters`);
       
       if (result.success) {
         get().setParameters(strategyName, result.data.parameters);

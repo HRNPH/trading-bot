@@ -34,6 +34,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: trading-bot-backend
+    env_file:
+      - ./.env
     environment:
       - DATABASE_URL=file:./data/trading_bot.db
       - LOG_LEVEL=INFO
@@ -44,7 +46,7 @@ services:
       - backend-internal
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.backend.rule=Host(`api.trading-system.madoka`)"
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
       - "traefik.http.routers.backend.middlewares=cors"
@@ -66,7 +68,7 @@ services:
       dockerfile: Dockerfile
     container_name: trading-bot-frontend
     environment:
-      - VITE_API_URL=http://api.localhost
+      - VITE_API_URL=http://api.trading-system.madoka/api
     depends_on:
       backend:
         condition: service_healthy
@@ -74,7 +76,7 @@ services:
       - traefik-public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.routers.frontend.rule=Host(`ui.trading-system.madoka`)"
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
       - "traefik.http.routers.frontend.middlewares=frontend-headers"

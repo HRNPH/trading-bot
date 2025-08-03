@@ -1,15 +1,15 @@
 import { create } from 'zustand';
+import { apiClient } from '../lib/api';
 
 interface SymbolsState {
-  // State
   symbols: string[];
   loading: boolean;
   error: string | null;
   
-  // Actions
   setSymbols: (symbols: string[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  
   fetchSymbols: () => Promise<void>;
   addSymbol: (symbol: string, name?: string, description?: string) => Promise<void>;
 }
@@ -29,8 +29,7 @@ export const useSymbolsStore = create<SymbolsState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await fetch('/api/v1/symbols/symbols/');
-      const result = await response.json();
+      const result = await apiClient.get('/v1/symbols/symbols/');
       
       if (result.success) {
         set({ symbols: result.data.symbols, loading: false });
@@ -38,6 +37,7 @@ export const useSymbolsStore = create<SymbolsState>((set, get) => ({
         set({ error: result.message || 'Failed to fetch symbols', loading: false });
       }
     } catch (error) {
+      console.error('Failed to fetch symbols:', error);
       set({ 
         error: error instanceof Error ? error.message : 'Failed to fetch symbols', 
         loading: false 
@@ -49,20 +49,12 @@ export const useSymbolsStore = create<SymbolsState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await fetch('/api/v1/symbols/symbols/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          symbol: symbol.toUpperCase(),
-          name: name || symbol.toUpperCase(),
-          description: description || '',
-        }),
+      const result = await apiClient.post('/v1/symbols/symbols/', {
+        symbol: symbol.toUpperCase(),
+        name: name || symbol.toUpperCase(),
+        description: description || '',
       });
 
-      const result = await response.json();
-      
       if (result.success) {
         // Refresh symbols list
         get().fetchSymbols();
@@ -70,6 +62,7 @@ export const useSymbolsStore = create<SymbolsState>((set, get) => ({
         set({ error: result.message || 'Failed to add symbol', loading: false });
       }
     } catch (error) {
+      console.error('Failed to add symbol:', error);
       set({ 
         error: error instanceof Error ? error.message : 'Failed to add symbol', 
         loading: false 

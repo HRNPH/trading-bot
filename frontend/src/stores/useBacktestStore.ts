@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiClient } from '../lib/api';
 
 interface BacktestResults {
   summary: {
@@ -69,25 +70,13 @@ export const useBacktestStore = create<BacktestState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await fetch('/api/v1/backtest/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          symbol,
-          strategy,
-          timeframe,
-          days,
-          parameters,
-        }),
+      const result = await apiClient.post('/v1/backtest/', {
+        symbol,
+        strategy,
+        timeframe,
+        days,
+        parameters,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
       
       if (result.success) {
         set({ results: result.data, loading: false });

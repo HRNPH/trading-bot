@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiClient } from '../lib/api';
 
 interface TradingStatus {
   is_trading: boolean;
@@ -64,24 +65,12 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await fetch('/api/v1/trading/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          symbol,
-          strategy,
-          timeframe,
-          parameters,
-        }),
+      const result = await apiClient.post('/v1/trading/start', {
+        symbol,
+        strategy,
+        timeframe,
+        parameters,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
       
       if (result.success) {
         set({ isTrading: true, loading: false });
@@ -103,15 +92,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const response = await fetch('/api/v1/trading/stop', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await apiClient.post('/v1/trading/stop', {});
       
       if (result.success) {
         set({ isTrading: false, status: null, loading: false });
@@ -133,13 +114,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     if (!isTrading) return;
     
     try {
-      const response = await fetch('/api/v1/trading/status');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiClient.get('/v1/trading/status');
       
       if (result.success) {
         set({ status: result.data });
