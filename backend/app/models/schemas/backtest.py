@@ -74,3 +74,4 @@ class BacktestRequest(BaseModel):
     strategy: str = Field(description="Strategy ID")
     timeframe: str = Field(description="Timeframe (e.g., 1Day, 1Hour)")
     days: int = Field(description="Number of days to backtest", ge=1, le=365)
+    initialBalance: float = Field(default=100000, description="Initial balance for backtest")

@@ -15,26 +15,38 @@ logger = structlog.get_logger(__name__)
 
 
 @router.post("/", response_model=DataResponse[Dict[str, Any]])
-async def run_backtest(
-    request: BacktestRequest, db=Depends(get_db)
-) -> DataResponse[Dict[str, Any]]:
+async def run_backtest(request: BacktestRequest) -> DataResponse[Dict[str, Any]]:
     """Run a backtest with the specified parameters."""
     try:
-        backtest_service = BacktestService()
+        # Validate request
+        if not request.symbol or not request.strategy:
+            raise HTTPException(
+                status_code=400, detail="Symbol and strategy are required"
+            )
 
-        result = backtest_service.run_backtest(
+        # Get initial balance from request
+        initial_balance = request.initialBalance
+
+        # Run backtest
+        backtest_service = BacktestService()
+        results = await backtest_service.run_backtest(
             symbol=request.symbol,
-            strategy_name=request.strategy,
+            strategy=request.strategy,
             timeframe=request.timeframe,
             days=request.days,
+            initial_balance=initial_balance,
         )
 
         return DataResponse(
-            success=True, data=result, message="Backtest completed successfully"
+            success=True,
+            data=results,
+            message="Backtest completed successfully",
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Backtest failed", error=str(e))
+        logger.error("Failed to run backtest", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -56,7 +68,10 @@ async def get_available_strategies() -> DataResponse[Dict[str, Any]]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/strategies/{strategy_name}/parameters", response_model=DataResponse[Dict[str, Any]])
+@router.get(
+    "/strategies/{strategy_name}/parameters",
+    response_model=DataResponse[Dict[str, Any]],
+)
 async def get_strategy_parameters(strategy_name: str) -> DataResponse[Dict[str, Any]]:
     """Get parameters for a specific strategy."""
     try:
@@ -64,7 +79,9 @@ async def get_strategy_parameters(strategy_name: str) -> DataResponse[Dict[str, 
         parameters = backtest_service.get_strategy_parameters(strategy_name)
 
         if parameters is None:
-            raise HTTPException(status_code=404, detail=f"Strategy {strategy_name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Strategy {strategy_name} not found"
+            )
 
         return DataResponse(
             success=True,

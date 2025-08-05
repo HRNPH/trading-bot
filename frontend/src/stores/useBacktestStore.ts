@@ -22,8 +22,61 @@ interface BacktestResults {
     };
   };
   trades: any[];
-  charts: any;
+  charts: {
+    equity?: {
+      type: string;
+      data: {
+        x: string[];
+        y: number[];
+      };
+      layout: {
+        title: string;
+        xaxis: { title: string };
+        yaxis: { title: string };
+      };
+    };
+    candlestick?: {
+      type: string;
+      data: Array<{
+        time: string;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+        volume: number;
+      }>;
+      indicators: Record<string, Array<{
+        time: string;
+        value: number;
+      }>>;
+      signals: {
+        buy: Array<{
+          time: string;
+          price: number;
+          text: string;
+        }>;
+        sell: Array<{
+          time: string;
+          price: number;
+          text: string;
+        }>;
+      };
+      layout: {
+        title: string;
+        xaxis: { title: string };
+        yaxis: { title: string };
+      };
+    };
+  };
   metadata: any;
+}
+
+interface BacktestConfig {
+  symbol?: string;
+  strategy?: string;
+  timeframe?: string;
+  days?: number;
+  initialBalance?: number;
 }
 
 interface BacktestState {
@@ -34,14 +87,10 @@ interface BacktestState {
   strategy: string;
   timeframe: string;
   days: number;
-  parameters: Record<string, any>;
+  initialBalance: number;
   
-  setResults: (results: BacktestResults | null) => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  setConfiguration: (config: Partial<BacktestState>) => void;
-  setParameters: (parameters: Record<string, any>) => void;
-  
+  setConfiguration: (config: Partial<BacktestConfig>) => void;
+  setInitialBalance: (balance: number) => void;
   runBacktest: () => Promise<void>;
   clearResults: () => void;
 }
@@ -55,17 +104,18 @@ export const useBacktestStore = create<BacktestState>((set, get) => ({
   strategy: 'cdc_actionzone',
   timeframe: '1Day',
   days: 90,
+  initialBalance: 100000, // Added initial balance
   parameters: {},
 
   // Actions
-  setResults: (results) => set({ results, error: null }),
-  setLoading: (loading) => set({ loading }),
-  setError: (error) => set({ error, loading: false }),
-  setConfiguration: (config) => set(config),
-  setParameters: (parameters) => set({ parameters }),
+  setResults: (results: BacktestResults | null) => set({ results, error: null }),
+  setLoading: (loading: boolean) => set({ loading }),
+  setError: (error: string | null) => set({ error, loading: false }),
+  setConfiguration: (config) => set({ ...config, results: null }),
+  setInitialBalance: (balance) => set({ initialBalance: balance }),
   
   runBacktest: async () => {
-    const { symbol, strategy, timeframe, days, parameters } = get();
+    const { symbol, strategy, timeframe, days, initialBalance } = get();
     
     set({ loading: true, error: null });
     
@@ -75,7 +125,7 @@ export const useBacktestStore = create<BacktestState>((set, get) => ({
         strategy,
         timeframe,
         days,
-        parameters,
+        initialBalance,
       });
       
       if (result.success) {

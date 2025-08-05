@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Plus, Play, Square, Activity, AlertCircle } from "lucide-react";
+import { Play, Square, Activity, AlertCircle, Plus } from "lucide-react";
 import {
   useBacktestStore,
   useTradingStore,
@@ -32,6 +32,11 @@ import {
   useStrategiesStore,
 } from "../stores";
 import { useStatusPolling } from "../hooks/useStatusPolling";
+import Charts from "./Charts";
+import LiveChart from "./LiveChart";
+import TradingViewChart from "./TradingViewChart";
+import TradesTable from "./TradesTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 const Dashboard: React.FC = () => {
   // Initialize stores
@@ -39,11 +44,12 @@ const Dashboard: React.FC = () => {
     results: backtestResults,
     loading: backtestLoading,
     error: backtestError,
-    symbol: backtestSymbol,
     strategy: backtestStrategy,
     timeframe: backtestTimeframe,
     days: backtestDays,
+    initialBalance,
     setConfiguration: setBacktestConfig,
+    setInitialBalance,
     runBacktest,
   } = useBacktestStore();
 
@@ -59,8 +65,11 @@ const Dashboard: React.FC = () => {
 
   const {
     symbols,
+    selectedSymbol,
+    symbolPriceData,
     error: symbolsError,
     fetchSymbols,
+    setSelectedSymbol,
     addSymbol,
   } = useSymbolsStore();
 
@@ -79,12 +88,6 @@ const Dashboard: React.FC = () => {
     fetchStrategies();
   }, [fetchSymbols, fetchStrategies]);
 
-  // State for add symbol dialog
-  const [showAddSymbol, setShowAddSymbol] = React.useState(false);
-  const [newSymbol, setNewSymbol] = React.useState("");
-  const [symbolName, setSymbolName] = React.useState("");
-  const [symbolDescription, setSymbolDescription] = React.useState("");
-
   const handleRunBacktest = () => {
     runBacktest();
   };
@@ -97,16 +100,40 @@ const Dashboard: React.FC = () => {
     stopTrading();
   };
 
-  const handleAddSymbol = async () => {
-    await addSymbol(newSymbol, symbolName, symbolDescription);
-    setShowAddSymbol(false);
-    setNewSymbol("");
-    setSymbolName("");
-    setSymbolDescription("");
-  };
-
   const formatPercentage = (value: number) => `${(value * 100).toFixed(2)}%`;
   const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
+
+  // Add Symbol Form Component
+  const AddSymbolForm: React.FC<{ onAdd: (symbol: string) => void }> = ({
+    onAdd,
+  }) => {
+    const [newSymbol, setNewSymbol] = React.useState("");
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newSymbol.trim()) {
+        onAdd(newSymbol.trim().toUpperCase());
+        setNewSymbol("");
+      }
+    };
+
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Symbol</label>
+          <Input
+            placeholder="e.g., TSLA"
+            value={newSymbol}
+            onChange={(e) => setNewSymbol(e.target.value)}
+            required
+          />
+        </div>
+        <DialogFooter>
+          <Button type="submit">Add Symbol</Button>
+        </DialogFooter>
+      </form>
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -150,8 +177,9 @@ const Dashboard: React.FC = () => {
               <label className="text-sm font-medium">Symbol</label>
               <div className="flex gap-2">
                 <Select
-                  value={backtestSymbol}
+                  value={selectedSymbol}
                   onValueChange={(value) => {
+                    setSelectedSymbol(value);
                     setBacktestConfig({ symbol: value });
                     setTradingConfig({ symbol: value });
                   }}
@@ -167,7 +195,7 @@ const Dashboard: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <Dialog open={showAddSymbol} onOpenChange={setShowAddSymbol}>
+                <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="icon">
                       <Plus className="h-4 w-4" />
@@ -177,48 +205,10 @@ const Dashboard: React.FC = () => {
                     <DialogHeader>
                       <DialogTitle>Add New Symbol</DialogTitle>
                       <DialogDescription>
-                        Add a new trading symbol to your portfolio
+                        Add a new trading symbol to track
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Symbol</label>
-                        <Input
-                          placeholder="e.g., AAPL"
-                          value={newSymbol}
-                          onChange={(e) => setNewSymbol(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Name (Optional)
-                        </label>
-                        <Input
-                          placeholder="e.g., Apple Inc."
-                          value={symbolName}
-                          onChange={(e) => setSymbolName(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Description (Optional)
-                        </label>
-                        <Input
-                          placeholder="Brief description"
-                          value={symbolDescription}
-                          onChange={(e) => setSymbolDescription(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowAddSymbol(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button onClick={handleAddSymbol}>Add Symbol</Button>
-                    </DialogFooter>
+                    <AddSymbolForm onAdd={addSymbol} />
                   </DialogContent>
                 </Dialog>
               </div>
@@ -284,6 +274,22 @@ const Dashboard: React.FC = () => {
                 className="w-full"
               />
             </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Initial Balance</label>
+              <Input
+                type="number"
+                placeholder="100000"
+                value={initialBalance}
+                onChange={(e) =>
+                  setInitialBalance(parseFloat(e.target.value) || 100000)
+                }
+                className="w-full"
+              />
+              <div className="text-sm text-muted-foreground">
+                ${initialBalance.toLocaleString()}
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-center gap-4 mt-6">
@@ -316,6 +322,46 @@ const Dashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Price Chart - Shows immediately when symbol is selected */}
+      {symbolPriceData && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{selectedSymbol} Price Chart</CardTitle>
+            <CardDescription>
+              Real-time price data with technical indicators
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TradingViewChart
+              title={`${selectedSymbol} Price Chart`}
+              data={symbolPriceData.candlestick.data.map((item) => ({
+                time: item.time,
+                open: item.open,
+                high: item.high,
+                low: item.low,
+                close: item.close,
+                volume: item.volume,
+              }))}
+              indicators={Object.entries(
+                symbolPriceData.candlestick.indicators || {}
+              ).map(([name, data]) => ({
+                name,
+                data: data.map((item) => ({
+                  time: item.time,
+                  value: item.value,
+                })),
+                color: name.includes("Fast EMA")
+                  ? "#f44336" // Red (matches Pine Script)
+                  : name.includes("Slow EMA")
+                  ? "#2196f3" // Blue (matches Pine Script)
+                  : "#2196f3",
+              }))}
+              height={500}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Backtest Results */}
       {backtestResults && (
@@ -386,12 +432,122 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Charts would go here - simplified for now */}
-            <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-              <p className="text-muted-foreground">
-                Charts will be displayed here
-              </p>
-            </div>
+            {/* Tabs for different views */}
+            <Tabs defaultValue="charts" className="mt-6">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="charts">Charts</TabsTrigger>
+                <TabsTrigger value="trades">Trades</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="charts" className="space-y-6">
+                {/* TradingView Chart */}
+                {backtestResults.charts?.candlestick && (
+                  <TradingViewChart
+                    title="Price Chart with Indicators"
+                    data={backtestResults.charts.candlestick.data.map(
+                      (item: any) => ({
+                        time: item.time,
+                        open: item.open,
+                        high: item.high,
+                        low: item.low,
+                        close: item.close,
+                        volume: item.volume,
+                      })
+                    )}
+                    indicators={Object.entries(
+                      backtestResults.charts.candlestick.indicators || {}
+                    ).map(([name, data]: [string, any]) => ({
+                      name,
+                      data: data.map((item: any) => ({
+                        time: item.time,
+                        value: item.value,
+                      })),
+                      color: name.includes("Fast EMA")
+                        ? "#f44336" // Red (matches Pine Script)
+                        : name.includes("Slow EMA")
+                        ? "#2196f3" // Blue (matches Pine Script)
+                        : "#2196f3",
+                    }))}
+                    height={500}
+                  />
+                )}
+
+                {/* Equity Chart */}
+                {backtestResults.charts?.equity && (
+                  <Charts equityChart={backtestResults.charts.equity} />
+                )}
+              </TabsContent>
+
+              <TabsContent value="trades">
+                <TradesTable
+                  trades={backtestResults.trades || []}
+                  title="Backtest Trade History"
+                />
+              </TabsContent>
+
+              <TabsContent value="details">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Detailed Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="font-semibold mb-3">Performance Metrics</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Total Return:</span>
+                            <span className={backtestResults.summary.performance.total_return >= 0 ? "text-green-600" : "text-red-600"}>
+                              {formatPercentage(backtestResults.summary.performance.total_return)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Sharpe Ratio:</span>
+                            <span>{backtestResults.summary.performance.sharpe_ratio.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Max Drawdown:</span>
+                            <span className="text-red-600">
+                              {formatPercentage(backtestResults.summary.performance.max_drawdown)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Win Rate:</span>
+                            <span>{formatPercentage(backtestResults.summary.performance.win_rate)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold mb-3">Trade Statistics</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Total Trades:</span>
+                            <span>{backtestResults.summary.trade_statistics.total_trades}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Winning Trades:</span>
+                            <span className="text-green-600">
+                              {backtestResults.summary.trade_statistics.winning_trades || 0}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Losing Trades:</span>
+                            <span className="text-red-600">
+                              {backtestResults.summary.trade_statistics.losing_trades || 0}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Volatility:</span>
+                            <span>{formatPercentage(backtestResults.summary.risk_metrics.volatility)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
@@ -441,11 +597,15 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-              <p className="text-muted-foreground">
-                Live price chart will be displayed here
-              </p>
-            </div>
+            <LiveChart
+              title="Live Portfolio Value"
+              data={[
+                {
+                  timestamp: new Date().toISOString(),
+                  value: liveStatus.portfolio.portfolio_value,
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       )}

@@ -81,6 +81,10 @@ export interface LiveStatus {
     volume: number;
     symbol: string;
   }>;
+  chart_data?: Array<{
+    timestamp: string;
+    value: number;
+  }>;
   last_updated: string;
 }
 

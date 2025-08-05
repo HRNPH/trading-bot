@@ -73,34 +73,49 @@ class CDCActionZoneStrategy(BaseStrategy):
         }
 
     def calculate_signals(self, data: pd.DataFrame) -> List[Signal]:
-        """Calculate trading signals based on CDC ActionZone logic."""
+        """Calculate trading signals based on CDC ActionZone logic (matching Pine Script)."""
         indicators = self.get_indicators(data)
 
         signals = []
 
-        # Calculate buy/sell conditions
-        buy_condition = indicators["green"] & (
-            ~indicators["green"].shift(1).fillna(False)
-        )
-        sell_condition = indicators["red"] & (~indicators["red"].shift(1).fillna(False))
+        # Calculate buy/sell conditions (exact match to Pine Script)
+        buycond = indicators["green"] & (~indicators["green"].shift(1).fillna(False))
+        sellcond = indicators["red"] & (~indicators["red"].shift(1).fillna(False))
 
-        # Determine trend - simplified logic
-        bullish = (
-            buy_condition.rolling(window=5).sum()
-            > sell_condition.rolling(window=5).sum()
-        )
-        bearish = (
-            sell_condition.rolling(window=5).sum()
-            > buy_condition.rolling(window=5).sum()
-        )
+        # Calculate bars since last buy/sell condition (equivalent to ta.barssince in Pine Script)
+        def bars_since(condition_series):
+            """Calculate bars since last True condition."""
+            result = pd.Series(index=condition_series.index, dtype=float)
+            last_true_idx = None
+
+            for i, (idx, value) in enumerate(condition_series.items()):
+                if value:
+                    last_true_idx = i
+                    result.iloc[i] = 0
+                elif last_true_idx is not None:
+                    result.iloc[i] = i - last_true_idx
+                else:
+                    result.iloc[i] = float("inf")  # No previous occurrence
+            return result
+
+        bars_since_buy = bars_since(buycond)
+        bars_since_sell = bars_since(sellcond)
+
+        # Determine trend (exact match to Pine Script logic)
+        bullish = bars_since_buy < bars_since_sell
+        bearish = bars_since_sell < bars_since_buy
+
+        # Generate buy/sell signals (exact match to Pine Script)
+        buy = bearish.shift(1).fillna(False) & buycond
+        sell = bullish.shift(1).fillna(False) & sellcond
 
         # Generate signals
         for i, (timestamp, row) in enumerate(data.iterrows()):
             if i == 0:
                 continue
 
-            # Buy signal: bearish trend ends and buy condition occurs
-            if bearish.iloc[i - 1] and buy_condition.iloc[i]:
+            # Buy signal: bearish[1] and buycond (exact Pine Script logic)
+            if buy.iloc[i]:
                 signal = Signal(
                     timestamp=timestamp,
                     symbol=self.config.symbol,
@@ -115,6 +130,8 @@ class CDCActionZoneStrategy(BaseStrategy):
                         "fast_ma": indicators["fast_ma"].iloc[i],
                         "slow_ma": indicators["slow_ma"].iloc[i],
                         "zone": "green" if indicators["green"].iloc[i] else "unknown",
+                        "was_bearish": bearish.iloc[i - 1] if i > 0 else False,
+                        "buycond": buycond.iloc[i],
                     },
                 )
                 signals.append(signal)
@@ -123,10 +140,11 @@ class CDCActionZoneStrategy(BaseStrategy):
                     timestamp=timestamp,
                     price=row["close"],
                     zone="green",
+                    was_bearish=bearish.iloc[i - 1] if i > 0 else False,
                 )
 
-            # Sell signal: bullish trend ends and sell condition occurs
-            elif bullish.iloc[i - 1] and sell_condition.iloc[i]:
+            # Sell signal: bullish[1] and sellcond (exact Pine Script logic)
+            elif sell.iloc[i]:
                 signal = Signal(
                     timestamp=timestamp,
                     symbol=self.config.symbol,
@@ -139,6 +157,8 @@ class CDCActionZoneStrategy(BaseStrategy):
                         "fast_ma": indicators["fast_ma"].iloc[i],
                         "slow_ma": indicators["slow_ma"].iloc[i],
                         "zone": "red" if indicators["red"].iloc[i] else "unknown",
+                        "was_bullish": bullish.iloc[i - 1] if i > 0 else False,
+                        "sellcond": sellcond.iloc[i],
                     },
                 )
                 signals.append(signal)
@@ -147,6 +167,7 @@ class CDCActionZoneStrategy(BaseStrategy):
                     timestamp=timestamp,
                     price=row["close"],
                     zone="red",
+                    was_bullish=bullish.iloc[i - 1] if i > 0 else False,
                 )
 
         self.logger.info(
